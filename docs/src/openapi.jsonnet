@@ -662,6 +662,7 @@ std.manifestYamlDoc(
             'Search',
           ],
           summary: 'Search for documents matching a specified text query\n',
+          description: 'Uses Omnisearch (https://github.com/scambier/obsidian-omnisearch) if installed for improved BM25-ranked results; otherwise falls back to Obsidian\'s built-in simple search.\n',
           parameters: [
             {
               name: 'query',
@@ -675,7 +676,7 @@ std.manifestYamlDoc(
             {
               name: 'contextLength',
               'in': 'query',
-              description: 'How much context to return around the matching string',
+              description: 'How much context to return around the matching string. Only used by the built-in fallback search; Omnisearch controls its own excerpt length.',
               required: false,
               schema: {
                 type: 'number',

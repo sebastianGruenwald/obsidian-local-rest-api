@@ -505,9 +505,11 @@ export class McpHandler {
 
     this.tool(
       "search_simple",
-      "Search vault files using Obsidian's built-in simple search. " +
+      "Search vault files for a text query. " +
+        "Uses Omnisearch (https://github.com/scambier/obsidian-omnisearch) if installed for improved BM25-ranked results; " +
+        "otherwise falls back to Obsidian's built-in simple search. " +
         "Returns an array of {filename, score, matches} objects sorted by relevance score. " +
-        "Each match includes the matched text and surrounding context characters (controlled by contextLength).",
+        "Each match includes the matched text and surrounding context (contextLength is only used by the built-in fallback; Omnisearch controls its own excerpt length).",
       {
         query: z.string().describe("Search query string"),
         contextLength: z

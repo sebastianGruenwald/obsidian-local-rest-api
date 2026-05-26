@@ -1584,6 +1584,76 @@ describe("requestHandler", () => {
         .set("Authorization", `Bearer ${API_KEY}`)
         .expect(400);
     });
+
+    describe("with Omnisearch available", () => {
+      const omnisearchMock = {
+        search: jest.fn(),
+      };
+
+      beforeEach(() => {
+        (globalThis as Record<string, unknown>)["omnisearch"] = omnisearchMock;
+      });
+
+      afterEach(() => {
+        delete (globalThis as Record<string, unknown>)["omnisearch"];
+        omnisearchMock.search.mockReset();
+      });
+
+      test("uses Omnisearch results when available", async () => {
+        omnisearchMock.search.mockResolvedValue([
+          {
+            path: "notes/foo.md",
+            score: 42,
+            excerpt: "some context around the match",
+            matches: [{ match: "foo", offset: 6 }],
+          },
+        ]);
+
+        const result = await request(server)
+          .post("/search/simple/?query=foo")
+          .set("Authorization", `Bearer ${API_KEY}`)
+          .expect(200);
+
+        expect(omnisearchMock.search).toHaveBeenCalledWith("foo");
+        expect(result.body).toHaveLength(1);
+        expect(result.body[0].filename).toBe("notes/foo.md");
+        expect(result.body[0].score).toBe(42);
+        expect(result.body[0].matches).toHaveLength(1);
+        expect(result.body[0].matches[0].match.start).toBe(6);
+        expect(result.body[0].matches[0].match.end).toBe(9);
+        expect(result.body[0].matches[0].match.source).toBe("content");
+        expect(result.body[0].matches[0].context).toBe("some context around the match");
+      });
+
+      test("maps multiple Omnisearch results preserving order", async () => {
+        omnisearchMock.search.mockResolvedValue([
+          { path: "a.md", score: 10, excerpt: "ctx a", matches: [] },
+          { path: "b.md", score: 5, excerpt: "ctx b", matches: [{ match: "x", offset: 0 }] },
+        ]);
+
+        const result = await request(server)
+          .post("/search/simple/?query=x")
+          .set("Authorization", `Bearer ${API_KEY}`)
+          .expect(200);
+
+        expect(result.body).toHaveLength(2);
+        expect(result.body[0].filename).toBe("a.md");
+        expect(result.body[1].filename).toBe("b.md");
+        expect(result.body[1].matches[0].match.end).toBe(1);
+      });
+
+      test("does not call prepareSimpleSearch when Omnisearch is available", async () => {
+        omnisearchMock.search.mockResolvedValue([]);
+        _prepareSimpleSearchMock.behavior = null;
+
+        await request(server)
+          .post("/search/simple/?query=test")
+          .set("Authorization", `Bearer ${API_KEY}`)
+          .expect(200);
+
+        expect(omnisearchMock.search).toHaveBeenCalled();
+      });
+    });
   });
 
   describe("searchQueryPost", () => {

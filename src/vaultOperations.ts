@@ -504,6 +504,10 @@ export class VaultOperations {
     query: string,
     contextLength = 100,
   ): Promise<SearchResponseItem[]> {
+    if (this.omnisearchIsAvailable()) {
+      return this.simpleSearchViaOmnisearch(query);
+    }
+
     const results: SearchResponseItem[] = [];
     const search = prepareSimpleSearch(query);
 
@@ -551,6 +555,35 @@ export class VaultOperations {
 
     results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     return results;
+  }
+
+  private omnisearchIsAvailable(): boolean {
+    const omnisearch = (globalThis as Record<string, unknown>)["omnisearch"];
+    return omnisearch != null && typeof (omnisearch as Record<string, unknown>)["search"] === "function";
+  }
+
+  private async simpleSearchViaOmnisearch(query: string): Promise<SearchResponseItem[]> {
+    const omnisearch = (globalThis as Record<string, unknown>)["omnisearch"] as {
+      search: (q: string) => Promise<Array<{
+        path: string;
+        score: number;
+        excerpt: string;
+        matches: Array<{ match: string; offset: number }>;
+      }>>;
+    };
+    const results = await omnisearch.search(query);
+    return results.map((r) => ({
+      filename: r.path,
+      score: r.score,
+      matches: r.matches.map((m) => ({
+        match: {
+          start: m.offset,
+          end: m.offset + m.match.length,
+          source: "content" as const,
+        },
+        context: r.excerpt,
+      })),
+    }));
   }
 
   async searchJsonLogic(
